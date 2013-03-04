@@ -72,7 +72,21 @@ int main(int argc, char* argv[])
 
    const double desired_probability_of_false_positive = 1.0 / word_list.size();
 
-   compressible_bloom_filter filter(word_list.size(),desired_probability_of_false_positive,random_seed);
+   bloom_parameters parameters;
+   parameters.projected_element_count    = word_list.size();
+   parameters.false_positive_probability = desired_probability_of_false_positive;
+   parameters.random_seed                = random_seed++;
+   parameters.maximum_number_of_hashes   = 7;
+
+   if (!parameters)
+   {
+      std::cout << "Error - Invalid set of bloom filter parameters!" << std::endl;
+      return 1;
+   }
+
+   parameters.compute_optimal_parameters();
+
+   compressible_bloom_filter filter(parameters);
 
    filter.insert(word_list.begin(),word_list.end());
 

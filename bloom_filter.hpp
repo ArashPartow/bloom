@@ -40,6 +40,120 @@ static const unsigned char bit_mask[bits_per_char] = {
                                                        0x80   //10000000
                                                      };
 
+class bloom_parameters
+{
+public:
+
+   bloom_parameters()
+   : minimum_size(1),
+     maximum_size(std::numeric_limits<unsigned long long int>::max()),
+     minimum_number_of_hashes(1),
+     maximum_number_of_hashes(std::numeric_limits<unsigned int>::max()),
+     projected_element_count(10000),
+     false_positive_probability(1.0 / projected_element_count),
+     random_seed(0xA5A5A5A55A5A5A5AULL)
+   {}
+
+   virtual ~bloom_parameters()
+   {}
+
+   inline bool operator!()
+   {
+      return (minimum_size > maximum_size)      ||
+             (minimum_number_of_hashes > maximum_number_of_hashes) ||
+             (minimum_number_of_hashes < 1)     ||
+             (0 == maximum_number_of_hashes)    ||
+             (0 == projected_element_count)     ||
+             (false_positive_probability < 0.0) ||
+             (std::numeric_limits<double>::infinity() == std::abs(false_positive_probability)) ||
+             (0 == random_seed)                 ||
+             (0xFFFFFFFFFFFFFFFFULL == random_seed);
+   }
+
+   //Allowed min/max size of the bloom filter in bits
+   unsigned long long int minimum_size;
+   unsigned long long int maximum_size;
+
+   //Allowed min/max number of hash functions
+   unsigned int minimum_number_of_hashes;
+   unsigned int maximum_number_of_hashes;
+
+   //The approximate number of elements to be inserted
+   //into the bloom filter, should be within one order
+   //of magnitude. The default is 10000.
+   unsigned long long int projected_element_count;
+
+   //The approximate false positive probability expected
+   //from the bloom filter. The default is the reciprocal
+   //of the projected_element_count.
+   double false_positive_probability;
+
+   unsigned long long int random_seed;
+
+   struct optimal_parameters_t
+   {
+      optimal_parameters_t()
+      : number_of_hashes(0),
+        table_size(0)
+      {}
+
+      unsigned int number_of_hashes;
+      unsigned long long int table_size;
+   };
+
+   optimal_parameters_t optimal_parameters;
+
+   virtual bool compute_optimal_parameters()
+   {
+      /*
+        Note:
+        The following will attempt to find the number of hash functions
+        and minimum amount of storage bits required to construct a bloom
+        filter consistent with the user defined false positive probability
+        and estimated element insertion count.
+      */
+
+      if (!(*this))
+         return false;
+
+      double min_m = std::numeric_limits<double>::infinity();
+      double min_k = 0.0;
+      double curr_m = 0.0;
+      double k = 1.0;
+
+      while (k < 1000.0)
+      {
+         double numerator   = (- k * projected_element_count);
+         double denominator = std::log(1.0 - std::pow(false_positive_probability, 1.0 / k));
+         curr_m = numerator / denominator;
+         if (curr_m < min_m)
+         {
+            min_m = curr_m;
+            min_k = k;
+         }
+         k += 1.0;
+      }
+
+      optimal_parameters_t& optp = optimal_parameters;
+
+      optp.number_of_hashes = static_cast<unsigned int>(min_k);
+      optp.table_size = static_cast<unsigned long long int>(min_m);
+      optp.table_size += (((optp.table_size % bits_per_char) != 0) ? (bits_per_char - (optp.table_size % bits_per_char)) : 0);
+
+      if (optp.number_of_hashes < minimum_number_of_hashes)
+         optp.number_of_hashes = minimum_number_of_hashes;
+      else if (optp.number_of_hashes > maximum_number_of_hashes)
+         optp.number_of_hashes = maximum_number_of_hashes;
+
+      if (optp.table_size < minimum_size)
+         optp.table_size = minimum_size;
+      else if (optp.table_size > maximum_size)
+         optp.table_size = maximum_size;
+
+      return true;
+   }
+
+};
 
 class bloom_filter
 {
@@ -50,19 +164,29 @@ protected:
 
 public:
 
-   bloom_filter(const std::size_t& predicted_inserted_element_count,
-                const double& false_positive_probability,
-                const std::size_t& random_seed)
+   bloom_filter()
    : bit_table_(0),
-     predicted_inserted_element_count_(predicted_inserted_element_count),
+     salt_count_(0),
+     table_size_(0),
+     raw_table_size_(0),
+     projected_element_count_(0),
      inserted_element_count_(0),
-     random_seed_((random_seed) ? random_seed : 0xA5A5A5A5),
-     desired_false_positive_probability_(false_positive_probability)
+     random_seed_(0),
+     desired_false_positive_probability_(0.0)
+   {}
+
+   bloom_filter(const bloom_parameters& p)
+   : bit_table_(0),
+     projected_element_count_(p.projected_element_count),
+     inserted_element_count_(0),
+     random_seed_((p.random_seed * 0xA5A5A5A5) + 1),
+     desired_false_positive_probability_(p.false_positive_probability)
    {
-      find_optimal_parameters();
+      salt_count_ = p.optimal_parameters.number_of_hashes;
+      table_size_ = p.optimal_parameters.table_size;
       generate_unique_salt();
       raw_table_size_ = table_size_ / bits_per_char;
-      bit_table_ = new cell_type[raw_table_size_];
+      bit_table_ = new cell_type[static_cast<std::size_t>(raw_table_size_)];
       std::fill_n(bit_table_,raw_table_size_,0x00);
    }
 
@@ -71,19 +195,46 @@ public:
       this->operator=(filter);
    }
 
-   bloom_filter& operator = (const bloom_filter& filter)
+   inline bool operator == (const bloom_filter& f) const
    {
-      salt_count_ = filter.salt_count_;
-      table_size_ = filter.table_size_;
-      raw_table_size_ = filter.raw_table_size_;
-      predicted_inserted_element_count_ = filter.predicted_inserted_element_count_;
-      inserted_element_count_ = filter.inserted_element_count_;
-      random_seed_ = filter.random_seed_;
-      desired_false_positive_probability_ = filter.desired_false_positive_probability_;
-      delete[] bit_table_;
-      bit_table_ = new cell_type[raw_table_size_];
-      std::copy(filter.bit_table_,filter.bit_table_ + raw_table_size_,bit_table_);
-      salt_ = filter.salt_;
+      if (this != &f)
+      {
+         return
+            (salt_count_                         == f.salt_count_)                         &&
+            (table_size_                         == f.table_size_)                         &&
+            (raw_table_size_                     == f.raw_table_size_)                     &&
+            (projected_element_count_   == f.projected_element_count_)   &&
+            (inserted_element_count_             == f.inserted_element_count_)             &&
+            (random_seed_                        == f.random_seed_)                        &&
+            (desired_false_positive_probability_ == f.desired_false_positive_probability_) &&
+            (salt_                               == f.salt_)                               &&
+            std::equal(f.bit_table_,f.bit_table_ + raw_table_size_,bit_table_);
+      }
+      else
+         return true;
+   }
+
+   inline bool operator != (const bloom_filter& f) const
+   {
+      return !operator==(f);
+   }
+
+   inline bloom_filter& operator = (const bloom_filter& f)
+   {
+      if (this != &f)
+      {
+         salt_count_ = f.salt_count_;
+         table_size_ = f.table_size_;
+         raw_table_size_ = f.raw_table_size_;
+         projected_element_count_ = f.projected_element_count_;
+         inserted_element_count_ = f.inserted_element_count_;
+         random_seed_ = f.random_seed_;
+         desired_false_positive_probability_ = f.desired_false_positive_probability_;
+         delete[] bit_table_;
+         bit_table_ = new cell_type[static_cast<std::size_t>(raw_table_size_)];
+         std::copy(f.bit_table_,f.bit_table_ + raw_table_size_,bit_table_);
+         salt_ = f.salt_;
+      }
       return *this;
    }
 
@@ -203,7 +354,7 @@ public:
       return end;
    }
 
-   inline virtual std::size_t size() const
+   inline virtual unsigned long long int size() const
    {
       return table_size_;
    }
@@ -225,52 +376,52 @@ public:
       return std::pow(1.0 - std::exp(-1.0 * salt_.size() * inserted_element_count_ / size()), 1.0 * salt_.size());
    }
 
-   inline bloom_filter& operator &= (const bloom_filter& filter)
+   inline bloom_filter& operator &= (const bloom_filter& f)
    {
       /* intersection */
       if (
-          (salt_count_  == filter.salt_count_) &&
-          (table_size_  == filter.table_size_) &&
-          (random_seed_ == filter.random_seed_)
+          (salt_count_  == f.salt_count_) &&
+          (table_size_  == f.table_size_) &&
+          (random_seed_ == f.random_seed_)
          )
       {
          for (std::size_t i = 0; i < raw_table_size_; ++i)
          {
-            bit_table_[i] &= filter.bit_table_[i];
+            bit_table_[i] &= f.bit_table_[i];
          }
       }
       return *this;
    }
 
-   inline bloom_filter& operator |= (const bloom_filter& filter)
+   inline bloom_filter& operator |= (const bloom_filter& f)
    {
       /* union */
       if (
-          (salt_count_  == filter.salt_count_) &&
-          (table_size_  == filter.table_size_) &&
-          (random_seed_ == filter.random_seed_)
+          (salt_count_  == f.salt_count_) &&
+          (table_size_  == f.table_size_) &&
+          (random_seed_ == f.random_seed_)
          )
       {
          for (std::size_t i = 0; i < raw_table_size_; ++i)
          {
-            bit_table_[i] |= filter.bit_table_[i];
+            bit_table_[i] |= f.bit_table_[i];
          }
       }
       return *this;
    }
 
-   inline bloom_filter& operator ^= (const bloom_filter& filter)
+   inline bloom_filter& operator ^= (const bloom_filter& f)
    {
       /* difference */
       if (
-          (salt_count_  == filter.salt_count_) &&
-          (table_size_  == filter.table_size_) &&
-          (random_seed_ == filter.random_seed_)
+          (salt_count_  == f.salt_count_) &&
+          (table_size_  == f.table_size_) &&
+          (random_seed_ == f.random_seed_)
          )
       {
          for (std::size_t i = 0; i < raw_table_size_; ++i)
          {
-            bit_table_[i] ^= filter.bit_table_[i];
+            bit_table_[i] ^= f.bit_table_[i];
          }
       }
       return *this;
@@ -279,6 +430,11 @@ public:
    inline const cell_type* table() const
    {
       return bit_table_;
+   }
+
+   inline std::size_t hash_count()
+   {
+      return salt_.size();
    }
 
 protected:
@@ -347,7 +503,7 @@ protected:
               so as to allow for the generation of unique bloom filter
               instances.
             */
-            salt_[i] = salt_[i] * salt_[(i + 3) % salt_.size()] + random_seed_;
+            salt_[i] = salt_[i] * salt_[(i + 3) % salt_.size()] + static_cast<bloom_type>(random_seed_);
           }
       }
       else
@@ -366,75 +522,55 @@ protected:
       }
    }
 
-   void find_optimal_parameters()
-   {
-      /*
-        Note:
-        The following will attempt to find the number of hash functions
-        and minimum amount of storage bits required to construct a bloom
-        filter consistent with the user defined false positive probability
-        and estimated element insertion count.
-      */
-
-      double min_m = std::numeric_limits<double>::infinity();
-      double min_k = 0.0;
-      double curr_m = 0.0;
-      double k = 1.0;
-      while (k < 1000.0)
-      {
-         double numerator   = (- k * predicted_inserted_element_count_);
-         double denominator = std::log(1.0 - std::pow(desired_false_positive_probability_, 1.0 / k));
-         curr_m = numerator / denominator;
-
-         if (curr_m < min_m)
-         {
-            min_m = curr_m;
-            min_k = k;
-         }
-         k += 1.0;
-      }
-
-      salt_count_ = static_cast<std::size_t>(min_k);
-      table_size_ = static_cast<std::size_t>(min_m);
-      table_size_ += (((table_size_ % bits_per_char) != 0) ? (bits_per_char - (table_size_ % bits_per_char)) : 0);
-   }
-
    inline bloom_type hash_ap(const unsigned char* begin, std::size_t remaining_length, bloom_type hash) const
    {
       const unsigned char* itr = begin;
-
+      unsigned int loop = 0;
+      while (remaining_length >= 8)
+      {
+         const unsigned int& i1 = *(reinterpret_cast<const unsigned int*>(itr)); itr += sizeof(unsigned int);
+         const unsigned int& i2 = *(reinterpret_cast<const unsigned int*>(itr)); itr += sizeof(unsigned int);
+         hash ^= (hash <<  7) ^  i1 * (hash >> 3) ^
+              (~((hash << 11) + (i2 ^ (hash >> 5))));
+         remaining_length -= 8;
+      }
       while (remaining_length >= 4)
       {
-         hash ^=    (hash <<  7) ^  (*itr++) * (hash >> 3);
-         hash ^= (~((hash << 11) + ((*itr++) ^ (hash >> 5))));
-         hash ^=    (hash <<  7) ^  (*itr++) * (hash >> 3);
-         hash ^= (~((hash << 11) + ((*itr++) ^ (hash >> 5))));
+         const unsigned int& i = *(reinterpret_cast<const unsigned int*>(itr));
+         if (loop & 0x01)
+            hash ^=    (hash <<  7) ^  i * (hash >> 3);
+         else
+            hash ^= (~((hash << 11) + (i ^ (hash >> 5))));
+         ++loop;
          remaining_length -= 4;
+         itr += sizeof(unsigned int);
       }
-
       while (remaining_length >= 2)
       {
-         hash ^=    (hash <<  7) ^  (*itr++) * (hash >> 3);
-         hash ^= (~((hash << 11) + ((*itr++) ^ (hash >> 5))));
+         const unsigned short& i = *(reinterpret_cast<const unsigned short*>(itr));
+         if (loop & 0x01)
+            hash ^=    (hash <<  7) ^  i * (hash >> 3);
+         else
+            hash ^= (~((hash << 11) + (i ^ (hash >> 5))));
+         ++loop;
          remaining_length -= 2;
+         itr += sizeof(unsigned short);
       }
-
       if (remaining_length)
       {
-         hash ^= (hash <<  7) ^ (*itr) * (hash >> 3);
+         hash += ((*itr) ^ (hash * 0xA5A5A5A5)) + loop;
       }
-
       return hash;
    }
 
    std::vector<bloom_type> salt_;
    unsigned char*          bit_table_;
-   std::size_t             salt_count_;
-   std::size_t             table_size_;
-   std::size_t             raw_table_size_;
-   std::size_t             predicted_inserted_element_count_;
-   std::size_t             inserted_element_count_;
-   std::size_t             random_seed_;
+   unsigned int            salt_count_;
+   unsigned long long int  table_size_;
+   unsigned long long int  raw_table_size_;
+   unsigned long long int  projected_element_count_;
+   unsigned int            inserted_element_count_;
+   unsigned long long int  random_seed_;
    double                  desired_false_positive_probability_;
 };
 
@@ -459,20 +595,17 @@ inline bloom_filter operator ^ (const bloom_filter& a, const bloom_filter& b)
    return result;
 }
 
-
 class compressible_bloom_filter : public bloom_filter
 {
 public:
 
-   compressible_bloom_filter(const std::size_t& predicted_element_count,
-                             const double& false_positive_probability,
-                             const std::size_t& random_seed)
-   : bloom_filter(predicted_element_count,false_positive_probability,random_seed)
+   compressible_bloom_filter(const bloom_parameters& p)
+   : bloom_filter(p)
    {
       size_list.push_back(table_size_);
    }
 
-   inline virtual std::size_t size() const
+   inline virtual unsigned long long int size() const
    {
       return size_list.back();
    }
@@ -484,8 +617,8 @@ public:
          return false;
       }
 
-      std::size_t original_table_size = size_list.back();
-      std::size_t new_table_size = static_cast<std::size_t>((size_list.back() * (1.0 - (percentage / 100.0))));
+      unsigned long long int original_table_size = size_list.back();
+      unsigned long long int new_table_size = static_cast<unsigned long long int>((size_list.back() * (1.0 - (percentage / 100.0))));
       new_table_size -= (((new_table_size % bits_per_char) != 0) ? (new_table_size % bits_per_char) : 0);
 
       if ((bits_per_char > new_table_size) || (new_table_size >= original_table_size))
@@ -494,7 +627,7 @@ public:
       }
 
       desired_false_positive_probability_ = effective_fpp();
-      cell_type* tmp = new cell_type[new_table_size / bits_per_char];
+      cell_type* tmp = new cell_type[static_cast<std::size_t>(new_table_size / bits_per_char)];
       std::copy(bit_table_, bit_table_ + (new_table_size / bits_per_char), tmp);
       cell_type* itr = bit_table_ + (new_table_size / bits_per_char);
       cell_type* end = bit_table_ + (original_table_size / bits_per_char);
@@ -524,7 +657,7 @@ private:
       bit = bit_index % bits_per_char;
    }
 
-   std::vector<std::size_t> size_list;
+   std::vector<unsigned long long int> size_list;
 };
 
 #endif

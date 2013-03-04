@@ -26,7 +26,7 @@
                 Furthermore this process will be carried out upon 1000 unique
                 instances of Bloom filter. The objective is to empirically
                 determine which "random" seed that when used to construct a
-                Bloom filter will provided the smallest observed false positive
+                Bloom filter will provide the smallest observed false positive
                 probability for the given sets of data. The optimal seed will
                 be the one associated with the round that has the smallest
                 difference percentage of false positive probability against
@@ -80,16 +80,37 @@ int main(int argc, char* argv[])
       word_list_storage_size += word_list[i].size();
    }
 
-   std::size_t total_number_of_queries = 0;
+   unsigned int total_number_of_queries = 0;
 
    const double desired_probability_of_false_positive = 1.0 / word_list.size();
 
-   printf("Round\tQueries \tFPQ   \tIPFP    \tPFP     \tDPFP    \tTvD     \n");
+   printf("Round\t   Queries\t   FPQ\t   IPFP\t           PFP\t            DPFP\t    TvD\n");
 
-   while (random_seed < 1000)
+   unsigned int max_false_positive_count = 0;
+   unsigned int min_false_positive_count = std::numeric_limits<unsigned int>::max();
+   unsigned int total_false_positive = 0;
+   unsigned int total_zero_fp = 0;
+   unsigned long long int bloom_filter_size = 0;
+
+
+   static const unsigned int rounds = 1000;
+
+   while (random_seed < rounds)
    {
+      bloom_parameters parameters;
+      parameters.projected_element_count    = word_list.size();
+      parameters.false_positive_probability = desired_probability_of_false_positive;
+      parameters.random_seed                = ++random_seed;
 
-      bloom_filter filter(word_list.size(),desired_probability_of_false_positive,random_seed++);
+      if (!parameters)
+      {
+         std::cout << "Error - Invalid set of bloom filter parameters!" << std::endl;
+         return 1;
+      }
+
+      parameters.compute_optimal_parameters();
+
+      bloom_filter filter(parameters);
 
       filter.insert(word_list.begin(),word_list.end());
 
@@ -100,30 +121,70 @@ int main(int argc, char* argv[])
          return 1;
       }
 
-      std::size_t total_false_positive = 0;
+      unsigned int current_total_false_positive = 0;
 
       for (std::deque<std::string>::iterator it = outliers.begin(); it != outliers.end(); ++it)
       {
          if (filter.contains(*it))
          {
-            ++total_false_positive;
+            ++current_total_false_positive;
          }
       }
 
       total_number_of_queries += (outliers.size() + word_list.size());
 
       // Overall false positive probability
-      double pfp = total_false_positive / (1.0 * outliers.size());
+      double pfp = current_total_false_positive / (1.0 * outliers.size());
 
-      printf("%10llu\t%10llu\t%6llu\t%8.7f\t%8.7f\t%8.6f\t%8.6f\n",
+      printf("%6llu\t%10llu\t%6d\t%8.7f\t%8.7f\t%9.3f%%\t%8.6f\n",
               static_cast<unsigned long long>(random_seed),
               static_cast<unsigned long long>(total_number_of_queries),
-              static_cast<unsigned long long>(total_false_positive),
+              current_total_false_positive,
               desired_probability_of_false_positive,
               pfp,
               (100.0 * pfp) / desired_probability_of_false_positive,
               (100.0 * filter.size()) / (bits_per_char * word_list_storage_size));
+
+      if (current_total_false_positive < min_false_positive_count)
+         min_false_positive_count = current_total_false_positive;
+      else if (current_total_false_positive > max_false_positive_count)
+         max_false_positive_count = current_total_false_positive;
+
+     total_false_positive += current_total_false_positive;
+
+     if (0 == current_total_false_positive)
+        ++total_zero_fp;
+
+     bloom_filter_size = filter.size();
    }
+
+   double average_fpc = (1.0 * total_false_positive) / rounds;
+   double average_fpp = average_fpc / (outliers.size() + word_list.size());
+
+   printf("Bloom Filter Statistics\n"
+          "MinFPC: %d\tMaxFPC: %d\tAverageFPC: %8.5f\tAverageFPP: %9.8f Zero-FPC:%d\n"
+          "Filter Size: %lluKB\tData Size: %dKB\n",
+          min_false_positive_count,
+          max_false_positive_count,
+          average_fpc,
+          average_fpp,
+          total_zero_fp,
+          bloom_filter_size / (8 * 1024),
+          static_cast<unsigned int>(word_list_storage_size / 1024));
+
+   /*
+      Terminology
+      MinFPC : Minimum (smallest) False Positive Count
+      MaxFPC : Maximum (largest) False Positive Count
+      AverageFPC : Average False Positive Count
+      AverageFPP : Average False Positive Probability
+
+      FPQ  : False Positive Queries
+      IPFP : Indicative (desired) False Positive Probability
+      PFP  : Probability of a False Positive (based on the FPQ)
+      DPFP : Difference as a percentage between IPFP and PFP
+      TvD  : percentage of the filter size versus the raw data size
+   */
 
    return 0;
 }
