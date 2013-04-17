@@ -203,7 +203,7 @@ public:
             (salt_count_                         == f.salt_count_)                         &&
             (table_size_                         == f.table_size_)                         &&
             (raw_table_size_                     == f.raw_table_size_)                     &&
-            (projected_element_count_   == f.projected_element_count_)   &&
+            (projected_element_count_            == f.projected_element_count_)            &&
             (inserted_element_count_             == f.inserted_element_count_)             &&
             (random_seed_                        == f.random_seed_)                        &&
             (desired_false_positive_probability_ == f.desired_false_positive_probability_) &&
@@ -534,31 +534,34 @@ protected:
               (~((hash << 11) + (i2 ^ (hash >> 5))));
          remaining_length -= 8;
       }
-      while (remaining_length >= 4)
-      {
-         const unsigned int& i = *(reinterpret_cast<const unsigned int*>(itr));
-         if (loop & 0x01)
-            hash ^=    (hash <<  7) ^  i * (hash >> 3);
-         else
-            hash ^= (~((hash << 11) + (i ^ (hash >> 5))));
-         ++loop;
-         remaining_length -= 4;
-         itr += sizeof(unsigned int);
-      }
-      while (remaining_length >= 2)
-      {
-         const unsigned short& i = *(reinterpret_cast<const unsigned short*>(itr));
-         if (loop & 0x01)
-            hash ^=    (hash <<  7) ^  i * (hash >> 3);
-         else
-            hash ^= (~((hash << 11) + (i ^ (hash >> 5))));
-         ++loop;
-         remaining_length -= 2;
-         itr += sizeof(unsigned short);
-      }
       if (remaining_length)
       {
-         hash += ((*itr) ^ (hash * 0xA5A5A5A5)) + loop;
+         if (remaining_length >= 4)
+         {
+            const unsigned int& i = *(reinterpret_cast<const unsigned int*>(itr));
+            if (loop & 0x01)
+               hash ^=    (hash <<  7) ^  i * (hash >> 3);
+            else
+               hash ^= (~((hash << 11) + (i ^ (hash >> 5))));
+            ++loop;
+            remaining_length -= 4;
+            itr += sizeof(unsigned int);
+         }
+         if (remaining_length >= 2)
+         {
+            const unsigned short& i = *(reinterpret_cast<const unsigned short*>(itr));
+            if (loop & 0x01)
+               hash ^=    (hash <<  7) ^  i * (hash >> 3);
+            else
+               hash ^= (~((hash << 11) + (i ^ (hash >> 5))));
+            ++loop;
+            remaining_length -= 2;
+            itr += sizeof(unsigned short);
+         }
+         if (remaining_length)
+         {
+            hash += ((*itr) ^ (hash * 0xA5A5A5A5)) + loop;
+         }
       }
       return hash;
    }
