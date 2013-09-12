@@ -608,7 +608,7 @@ public:
       size_list.push_back(table_size_);
    }
 
-   inline virtual unsigned long long int size() const
+   inline unsigned long long int size() const
    {
       return size_list.back();
    }
@@ -650,7 +650,7 @@ public:
 
 private:
 
-   inline virtual void compute_indices(const bloom_type& hash, std::size_t& bit_index, std::size_t& bit) const
+   inline void compute_indices(const bloom_type& hash, std::size_t& bit_index, std::size_t& bit) const
    {
       bit_index = hash;
       for (std::size_t i = 0; i < size_list.size(); ++i)

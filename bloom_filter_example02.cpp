@@ -28,7 +28,7 @@
                 effective/theoretical false positive probability to increase.
                 The objective of this exercise is to track the observed false
                 positive probability against the effective false positive
-                probability as the filter's size is gradually decreased.
+                probability as the filter's size is gradually reduced.
 */
 
 
@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
    filter.insert(word_list.begin(),word_list.end());
 
    std::cout << "Filter Size\tEFPP    \tOFPP    \tDiff" << std::endl;
+
    while (filter.size() > 1)
    {
       std::vector<std::string>::iterator it = filter.contains_all(word_list.begin(),word_list.end());
@@ -140,13 +141,15 @@ bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
 
    if (2 == argc)
    {
+      index = ::atoi(argv[1]);
+
       const std::size_t wl_list_size = sizeof(wl_list) / sizeof(std::string);
+
       if (index >= wl_list_size)
       {
          std::cout << "Invalid world list index: " << index << std::endl;
          return false;
       }
-      index = ::atoi(argv[1]);
    }
 
    std::cout << "Loading list " << wl_list[index] << ".....";
@@ -162,6 +165,7 @@ bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
    }
    else
       std::cout << " Complete." << std::endl;
+
    return true;
 }
 
@@ -171,16 +175,20 @@ template <class T,
 bool read_file(const std::string& file_name, Container<T, Allocator>& c)
 {
    std::ifstream stream(file_name.c_str());
+
    if (!stream)
    {
       std::cout << "Error: Failed to open file '" << file_name << "'" << std::endl;
       return false;
    }
+
    std::string buffer;
+
    while (std::getline(stream,buffer))
    {
       c.push_back(buffer);
    }
+
    return true;
 }
 
@@ -208,6 +216,7 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
       {
          if (1 == (i & 0x00)) ns[i] = ~ns[i];
       }
+
       outliers.push_back(ns);
    }
 
@@ -307,11 +316,15 @@ void purify_outliers(const std::vector<std::string>& word_list, std::deque<std::
    if (!intersect_list.empty())
    {
       std::deque<std::string> new_outliers;
+
       for (std::deque<std::string>::iterator it = outliers.begin(); it != outliers.end(); ++it)
       {
          if (!std::binary_search(intersect_list.begin(),intersect_list.end(),*it))
+         {
             new_outliers.push_back(*it);
+         }
       }
+
       outliers.swap(new_outliers);
    }
 }

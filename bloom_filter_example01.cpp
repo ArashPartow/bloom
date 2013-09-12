@@ -22,7 +22,7 @@
 /*
    Description: This example will demonstrate how to instantiate a Bloom filter,
                 insert strings and then query the inserted strings and a set of
-                outlier strings for membership status in the filter.
+                outlier strings for membership status within the Bloom filter.
                 Furthermore this process will be carried out upon 1000 unique
                 instances of Bloom filter. The objective is to empirically
                 determine which "random" seed that when used to construct a
@@ -32,7 +32,6 @@
                 difference percentage of false positive probability against
                 the user specified false positive probability.
 */
-
 
 
 #include <iostream>
@@ -55,6 +54,7 @@ template <class T,
           template <class,class> class Container>
 bool read_file(const std::string& file_name, Container<T, Allocator>& c);
 
+std::string uppercase(std::string str);
 std::string reverse(std::string str);
 
 void generate_outliers(const std::vector<std::string>& word_list, std::deque<std::string>& outliers);
@@ -204,13 +204,15 @@ bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
 
    if (2 == argc)
    {
+      index = ::atoi(argv[1]);
+
       const std::size_t wl_list_size = sizeof(wl_list) / sizeof(std::string);
+
       if (index >= wl_list_size)
       {
          std::cout << "Invalid world list index: " << index << std::endl;
          return false;
       }
-      index = ::atoi(argv[1]);
    }
 
    std::cout << "Loading list " << wl_list[index] << ".....";
@@ -235,17 +237,31 @@ template <class T,
 bool read_file(const std::string& file_name, Container<T, Allocator>& c)
 {
    std::ifstream stream(file_name.c_str());
+
    if (!stream)
    {
       std::cout << "Error: Failed to open file '" << file_name << "'" << std::endl;
       return false;
    }
+
    std::string buffer;
+
    while (std::getline(stream,buffer))
    {
       c.push_back(buffer);
+      c.push_back(uppercase(buffer));
    }
+
    return true;
+}
+
+std::string uppercase(std::string str)
+{
+   for (std::size_t i = 0; i < str.size(); ++i)
+   {
+      str[i] = static_cast<char>(toupper(str[i]));
+   }
+   return str;
 }
 
 std::string reverse(std::string str)
@@ -272,6 +288,7 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
       {
          if (1 == (i & 0x00)) ns[i] = ~ns[i];
       }
+
       outliers.push_back(ns);
    }
 
@@ -321,6 +338,7 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
                      "XRW3ZSG1gw", "WcIjTxMxOM", "wNqCAIaTb2", "gO4em4HW8H", "TgGFSMEtbG", "WiwmbEw3QA",
                      "D2xshYUgpu", "xRUZCQVzBs", "nCnUmMgIjE", "p4Ewt1yCJr", "MeOjDcaMY5", "1XelMeXiiI"
                   };
+
    static const std::size_t rand_str_size = sizeof(rand_str) / sizeof(std::string);
 
    for (unsigned int i = 0; i < rand_str_size; ++i)
@@ -371,11 +389,15 @@ void purify_outliers(const std::vector<std::string>& word_list, std::deque<std::
    if (!intersect_list.empty())
    {
       std::deque<std::string> new_outliers;
+
       for (std::deque<std::string>::iterator it = outliers.begin(); it != outliers.end(); ++it)
       {
          if (!std::binary_search(intersect_list.begin(),intersect_list.end(),*it))
+         {
             new_outliers.push_back(*it);
+         }
       }
+
       outliers.swap(new_outliers);
    }
 }
