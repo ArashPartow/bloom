@@ -20,9 +20,10 @@
 #ifndef INCLUDE_BLOOM_FILTER_HPP
 #define INCLUDE_BLOOM_FILTER_HPP
 
-#include <cstddef>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <iterator>
 #include <limits>
 #include <string>
 #include <vector>
