@@ -1,12 +1,11 @@
-/** The following code shows that when inserting `size_t` into the bloom filter
-* and checking for membership using `int`s, there are false-negatives.
+/** Below is a templatized reference implementation. Now, one has to specify
+* the type of the `bloom_filter`. Then, only those types can be inserted and queried
+* from the Bloom Filter.
 *
-* That in itself might be understandble because no implicit cast is possible.
-* There are, however, two things I would like to see changed:
-* 1. The example for false-positive checks from -1 to -100 is clearly misleading!
-*    For the example to be meaningful (int) 1 to 100 should be true-positives!
-* 2. Document this behaviour. The unsuspecting user should be aware that inserting
-*    size_t's and checking with int's doesn't work!
+* In the below example, we first create an bloom_filter<int> and then one of type
+* bloom_filter<std::string>. The <int>-type Bloom Filter can be queried for and
+* inserted into `size_t` values. There will be an implicit cast taking place but
+* it will show the "right" behavior!
 */
 #include <iostream>
 #include <string>
@@ -36,7 +35,15 @@ int main()
    parameters.compute_optimal_parameters();
 
    //Instantiate Bloom Filter
-   bloom_filter filter(parameters);
+   bloom_filter<int> filter(parameters);
+   filter.insert(-3);
+   // Below rightly doesn't compile.
+   //  filter.insert(std::string("Foo"));
+   //  filter.insert(3.2);
+   bloom_filter<std::string> string_filter(parameters);
+   string_filter.insert(std::string("foo"));
+   // Doesn't compile either.
+  //  string_filter.insert(12);
 
    // Insert into Bloom Filter
    {

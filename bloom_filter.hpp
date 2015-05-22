@@ -156,6 +156,7 @@ public:
 
 };
 
+template<typename T>
 class bloom_filter
 {
 protected:
@@ -191,7 +192,7 @@ public:
       std::fill_n(bit_table_,raw_table_size_,0x00);
    }
 
-   bloom_filter(const bloom_filter& filter)
+   bloom_filter(const bloom_filter<T>& filter)
    {
       this->operator=(filter);
    }
@@ -220,7 +221,7 @@ public:
       return !operator==(f);
    }
 
-   inline bloom_filter& operator = (const bloom_filter& f)
+   inline bloom_filter<T>& operator = (const bloom_filter<T>& f)
    {
       if (this != &f)
       {
@@ -267,16 +268,10 @@ public:
       ++inserted_element_count_;
    }
 
-   template<typename T>
    inline void insert(const T& t)
    {
       // Note: T must be a C++ POD type.
       insert(reinterpret_cast<const unsigned char*>(&t),sizeof(T));
-   }
-
-   inline void insert(const std::string& key)
-   {
-      insert(reinterpret_cast<const unsigned char*>(key.c_str()),key.size());
    }
 
    inline void insert(const char* data, const std::size_t& length)
@@ -309,15 +304,9 @@ public:
       return true;
    }
 
-   template<typename T>
    inline bool contains(const T& t) const
    {
       return contains(reinterpret_cast<const unsigned char*>(&t),static_cast<std::size_t>(sizeof(T)));
-   }
-
-   inline bool contains(const std::string& key) const
-   {
-      return contains(reinterpret_cast<const unsigned char*>(key.c_str()),key.size());
    }
 
    inline bool contains(const char* data, const std::size_t& length) const
@@ -578,35 +567,39 @@ protected:
    double                  desired_false_positive_probability_;
 };
 
-inline bloom_filter operator & (const bloom_filter& a, const bloom_filter& b)
+template <typename T>
+inline bloom_filter<T> operator & (const bloom_filter<T>& a, const bloom_filter<T>& b)
 {
-   bloom_filter result = a;
+   bloom_filter<T> result = a;
    result &= b;
    return result;
 }
 
-inline bloom_filter operator | (const bloom_filter& a, const bloom_filter& b)
+template <typename T>
+inline bloom_filter<T> operator | (const bloom_filter<T>& a, const bloom_filter<T>& b)
 {
-   bloom_filter result = a;
+   bloom_filter<T> result = a;
    result |= b;
    return result;
 }
 
-inline bloom_filter operator ^ (const bloom_filter& a, const bloom_filter& b)
+template <typename T>
+inline bloom_filter<T> operator ^ (const bloom_filter<T>& a, const bloom_filter<T>& b)
 {
-   bloom_filter result = a;
+   bloom_filter<T> result = a;
    result ^= b;
    return result;
 }
 
-class compressible_bloom_filter : public bloom_filter
+template <typename T>
+class compressible_bloom_filter : public bloom_filter<T>
 {
 public:
 
    compressible_bloom_filter(const bloom_parameters& p)
-   : bloom_filter(p)
+   : bloom_filter<T>(p)
    {
-      size_list.push_back(table_size_);
+      size_list.push_back(bloom_filter<T>::table_size_);
    }
 
    inline unsigned long long int size() const
@@ -614,6 +607,8 @@ public:
       return size_list.back();
    }
 
+
+   using typename bloom_filter<T>::cell_type;
    inline bool compress(const double& percentage)
    {
       if ((0.0 >= percentage) || (percentage >= 100.0))
@@ -630,11 +625,12 @@ public:
          return false;
       }
 
-      desired_false_positive_probability_ = effective_fpp();
-      cell_type* tmp = new cell_type[static_cast<std::size_t>(new_table_size / bits_per_char)];
-      std::copy(bit_table_, bit_table_ + (new_table_size / bits_per_char), tmp);
-      cell_type* itr = bit_table_ + (new_table_size / bits_per_char);
-      cell_type* end = bit_table_ + (original_table_size / bits_per_char);
+      this->desired_false_positive_probability_ = this->effective_fpp();
+
+      cell_type * tmp = new cell_type[static_cast<std::size_t>(new_table_size / bits_per_char)];
+      std::copy(this->bit_table_, this->bit_table_ + (new_table_size / bits_per_char), tmp);
+      cell_type* itr = this->bit_table_ + (new_table_size / bits_per_char);
+      cell_type* end = this->bit_table_ + (original_table_size / bits_per_char);
       cell_type* itr_tmp = tmp;
 
       while (end != itr)
@@ -642,8 +638,8 @@ public:
          *(itr_tmp++) |= (*itr++);
       }
 
-      delete[] bit_table_;
-      bit_table_ = tmp;
+      delete[] this->bit_table_;
+      this->bit_table_ = tmp;
       size_list.push_back(new_table_size);
 
       return true;
@@ -651,7 +647,7 @@ public:
 
 private:
 
-   inline void compute_indices(const bloom_type& hash, std::size_t& bit_index, std::size_t& bit) const
+   inline void compute_indices(const typename bloom_filter<T>::bloom_type& hash, std::size_t& bit_index, std::size_t& bit) const
    {
       bit_index = hash;
       for (std::size_t i = 0; i < size_list.size(); ++i)
