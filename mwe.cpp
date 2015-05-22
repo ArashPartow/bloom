@@ -58,7 +58,7 @@ int main()
          }
          else
          {
-           std::cout << "False Negative: " << i << " : int" << std::endl;
+           std::cout << "False Negative: " << i << " : size_t" << std::endl;
          }
       }
       for (int i = 0; i < 100; ++i)
