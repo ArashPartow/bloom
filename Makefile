@@ -19,6 +19,7 @@ LINKER_OPT       = -L/usr/lib -lstdc++
 BUILD+=bloom_filter_example01
 BUILD+=bloom_filter_example02
 BUILD+=bloom_filter_example03
+BUILD+=bloom_filter_mwe
 
 all: $(BUILD)
 
@@ -30,6 +31,9 @@ bloom_filter_example02: bloom_filter.hpp bloom_filter_example02.cpp
 
 bloom_filter_example03: bloom_filter.hpp bloom_filter_example03.cpp
 	$(COMPILER) $(OPTIONS) bloom_filter_example03 bloom_filter_example03.cpp $(LINKER_OPT)
+
+bloom_filter_mwe: bloom_filter.hpp mwe.cpp
+	$(COMPILER) $(OPTIONS) bloom_filter_mwe mwe.cpp $(LINKER_OPT)
 
 clean:
 	rm -f core *.o *.bak *stackdump *#
