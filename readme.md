@@ -3,7 +3,7 @@
 
 + Optimal parameter selection based on expected false positive rate.
 + Union, intersection and difference operations between bloom filters.
-+ Compression of in-use table (increase in false positive probability vs space)
++ Compression of in-use table (increase of false positive probability vs space)
 + Portable and efficient source code implementation.
 
 ## Compatible Compilers
@@ -19,6 +19,12 @@ For more information please visit: http://www.partow.net/programming/hashfunctio
 ---
 
 ## Simple Bloom Filter Example
+**Example's objectives:**
++ Instantiate and configure a Bloom filter
++ Add some strings and integers to the Bloom filter
++ Query the Bloom filter for membership of the previously added strings and integers
++ Query the Bloom filter for membership of integers that were **NOT** previously added *(potential false positives)*
+
 ```javascript
 #include <iostream>
 #include <string>
