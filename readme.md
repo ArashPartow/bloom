@@ -5,6 +5,8 @@
 + Union, intersection and difference operations between bloom filters.
 + Compression of in-use table (increase of false positive probability vs space)
 + Portable and efficient source code implementation.
++ Single header implementation, no building required. No external dependencies
+
 
 ## Compatible Compilers
 + GNU Compiler Collection (4.1+)
