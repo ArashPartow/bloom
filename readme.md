@@ -12,7 +12,6 @@
 + Clang/LLVM (1.1+)
 + PGI C++ (10.x+)
 + Microsoft Visual Studio C++ Compiler (8.1+)
-+ Comeau C++ Compiler (4.3+)
 
 For more information please visit: http://www.partow.net/programming/hashfunctions/index.html
 
