@@ -95,6 +95,7 @@ int main(int argc, char* argv[])
    while (filter.size() > 1)
    {
       std::vector<std::string>::iterator it = filter.contains_all(word_list.begin(),word_list.end());
+
       if (word_list.end() != it)
       {
          std::cout << "ERROR: key not found in bloom filter! =>" << (*it) << std::endl;
@@ -153,6 +154,7 @@ bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
    }
 
    std::cout << "Loading list " << wl_list[index] << ".....";
+
    if (!read_file(wl_list[index],word_list))
    {
       return false;
@@ -202,6 +204,7 @@ std::string reverse(std::string str)
 void generate_outliers(const std::vector<std::string>& word_list, std::deque<std::string>& outliers)
 {
    std::cout << "Generating outliers..... ";
+
    for (std::vector<std::string>::const_iterator it = word_list.begin(); it != word_list.end(); ++it)
    {
       if ((*it) != reverse((*it)))
@@ -212,6 +215,7 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
       }
 
       std::string ns = *it;
+
       for (unsigned int i = 0; i < ns.size(); ++i)
       {
          if (1 == (i & 0x00)) ns[i] = ~ns[i];
@@ -292,8 +296,11 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
       outliers.push_back(reverse(s0 + s1 + s2 + s3 + s4 + s5));
       outliers.push_back(reverse(s0 + s1 + s2 + s3 + s4 + s5 + s6));
    }
+
    std::sort(outliers.begin(),outliers.end());
+
    purify_outliers(word_list,outliers);
+
    std::cout << "Complete." << std::endl;
 }
 
@@ -302,8 +309,8 @@ void purify_outliers(const std::vector<std::string>& word_list, std::deque<std::
    std::set<std::string> set1;
    std::set<std::string> set2;
 
-   std::copy(word_list.begin(), word_list.end(),std::inserter(set1,set1.begin()));
-   std::copy(outliers.begin(), outliers.end(), std::inserter(set2,set2.begin()));
+   std::copy(word_list.begin(), word_list.end(), std::inserter(set1,set1.begin()));
+   std::copy(outliers .begin(), outliers .end(), std::inserter(set2,set2.begin()));
 
    std::deque<std::string> intersect_list;
 

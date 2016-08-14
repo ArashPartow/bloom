@@ -33,7 +33,6 @@
 
 int main()
 {
-
    bloom_parameters parameters;
 
    // How many elements roughly do we expect to insert?

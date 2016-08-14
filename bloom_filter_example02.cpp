@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
 
    generate_outliers(word_list,outliers);
 
-   unsigned int random_seed = 0;
+   unsigned int random_seed           = 0;
    std::size_t word_list_storage_size = 0;
 
    for (unsigned int i = 0; i < word_list.size(); ++i)
@@ -88,8 +88,8 @@ int main(int argc, char* argv[])
 
    unsigned int max_false_positive_count = 0;
    unsigned int min_false_positive_count = std::numeric_limits<unsigned int>::max();
-   unsigned int total_false_positive = 0;
-   unsigned int total_zero_fp = 0;
+   unsigned int total_false_positive     = 0;
+   unsigned int total_zero_fp            = 0;
    unsigned long long int bloom_filter_size = 0;
 
 
@@ -98,6 +98,7 @@ int main(int argc, char* argv[])
    while (random_seed < rounds)
    {
       bloom_parameters parameters;
+
       parameters.projected_element_count    = word_list.size();
       parameters.false_positive_probability = desired_probability_of_false_positive;
       parameters.random_seed                = ++random_seed;
@@ -115,6 +116,7 @@ int main(int argc, char* argv[])
       filter.insert(word_list.begin(),word_list.end());
 
       std::vector<std::string>::iterator it = filter.contains_all(word_list.begin(),word_list.end());
+
       if (word_list.end() != it)
       {
          std::cout << "ERROR: key not found in bloom filter! =>" << (*it) << std::endl;
@@ -216,6 +218,7 @@ bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
    }
 
    std::cout << "Loading list " << wl_list[index] << ".....";
+
    if (!read_file(wl_list[index],word_list))
    {
       return false;
@@ -228,6 +231,7 @@ bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
    }
    else
       std::cout << " Complete." << std::endl;
+
    return true;
 }
 
@@ -261,6 +265,7 @@ std::string uppercase(std::string str)
    {
       str[i] = static_cast<char>(toupper(str[i]));
    }
+
    return str;
 }
 
@@ -274,6 +279,7 @@ std::string reverse(std::string str)
 void generate_outliers(const std::vector<std::string>& word_list, std::deque<std::string>& outliers)
 {
    std::cout << "Generating outliers..... ";
+
    for (std::vector<std::string>::const_iterator it = word_list.begin(); it != word_list.end(); ++it)
    {
       if ((*it) != reverse((*it)))
@@ -284,6 +290,7 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
       }
 
       std::string ns = *it;
+
       for (unsigned int i = 0; i < ns.size(); ++i)
       {
          if (1 == (i & 0x00)) ns[i] = ~ns[i];
@@ -365,8 +372,11 @@ void generate_outliers(const std::vector<std::string>& word_list, std::deque<std
       outliers.push_back(reverse(s0 + s1 + s2 + s3 + s4 + s5));
       outliers.push_back(reverse(s0 + s1 + s2 + s3 + s4 + s5 + s6));
    }
+
    std::sort(outliers.begin(),outliers.end());
+
    purify_outliers(word_list,outliers);
+
    std::cout << "Complete." << std::endl;
 }
 
