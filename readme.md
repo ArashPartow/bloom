@@ -96,7 +96,7 @@ int main()
       }
 
       // Query the existence of invalid numbers
-      for (std::size_t i = -1; i > -100; --i)
+      for (int i = -1; i > -100; --i)
       {
          if (filter.contains(i))
          {
