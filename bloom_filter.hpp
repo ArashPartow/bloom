@@ -628,7 +628,7 @@ protected:
    unsigned long long int  table_size_;
    unsigned long long int  raw_table_size_;
    unsigned long long int  projected_element_count_;
-   unsigned int            inserted_element_count_;
+   unsigned long long int  inserted_element_count_;
    unsigned long long int  random_seed_;
    double                  desired_false_positive_probability_;
 };
