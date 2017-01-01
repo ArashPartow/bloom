@@ -9,9 +9,8 @@
  *                                                                   *
  * Copyright notice:                                                 *
  * Free use of the Open Bloom Filter Library is permitted under the  *
- * guidelines and in accordance with the most current version of the *
- * Common Public License.                                            *
- * http://www.opensource.org/licenses/cpl1.0.php                     *
+ * guidelines and in accordance with the MIT License.                *
+ * http://www.opensource.org/licenses/MIT                            *
  *                                                                   *
  *********************************************************************
 */
@@ -23,6 +22,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <iterator>
 #include <limits>
 #include <string>
@@ -72,22 +72,22 @@ public:
              (0xFFFFFFFFFFFFFFFFULL == random_seed);
    }
 
-   //Allowed min/max size of the bloom filter in bits
+   // Allowable min/max size of the bloom filter in bits
    unsigned long long int minimum_size;
    unsigned long long int maximum_size;
 
-   //Allowed min/max number of hash functions
+   // Allowable min/max number of hash functions
    unsigned int minimum_number_of_hashes;
    unsigned int maximum_number_of_hashes;
 
-   //The approximate number of elements to be inserted
-   //into the bloom filter, should be within one order
-   //of magnitude. The default is 10000.
+   // The approximate number of elements to be inserted
+   // into the bloom filter, should be within one order
+   // of magnitude. The default is 10000.
    unsigned long long int projected_element_count;
 
-   //The approximate false positive probability expected
-   //from the bloom filter. The default is the reciprocal
-   //of the projected_element_count.
+   // The approximate false positive probability expected
+   // from the bloom filter. The default is assumed to be
+   // the reciprocal of the projected_element_count.
    double false_positive_probability;
 
    unsigned long long int random_seed;
@@ -120,15 +120,14 @@ public:
 
       double min_m  = std::numeric_limits<double>::infinity();
       double min_k  = 0.0;
-      double curr_m = 0.0;
       double k      = 1.0;
 
       while (k < 1000.0)
       {
-         double numerator   = (- k * projected_element_count);
-         double denominator = std::log(1.0 - std::pow(false_positive_probability, 1.0 / k));
+         const double numerator   = (- k * projected_element_count);
+         const double denominator = std::log(1.0 - std::pow(false_positive_probability, 1.0 / k));
 
-         curr_m = numerator / denominator;
+         const double curr_m = numerator / denominator;
 
          if (curr_m < min_m)
          {
@@ -168,14 +167,13 @@ protected:
 
    typedef unsigned int bloom_type;
    typedef unsigned char cell_type;
+   typedef std::vector<unsigned char> table_type;
 
 public:
 
    bloom_filter()
-   : bit_table_ (0),
-     salt_count_(0),
+   : salt_count_(0),
      table_size_(0),
-     raw_table_size_(0),
      projected_element_count_(0),
      inserted_element_count_ (0),
      random_seed_(0),
@@ -183,8 +181,7 @@ public:
    {}
 
    bloom_filter(const bloom_parameters& p)
-   : bit_table_(0),
-     projected_element_count_(p.projected_element_count),
+   : projected_element_count_(p.projected_element_count),
      inserted_element_count_(0),
      random_seed_((p.random_seed * 0xA5A5A5A5) + 1),
      desired_false_positive_probability_(p.false_positive_probability)
@@ -194,10 +191,7 @@ public:
 
       generate_unique_salt();
 
-      raw_table_size_ = table_size_ / bits_per_char;
-      bit_table_      = new cell_type[static_cast<std::size_t>(raw_table_size_)];
-
-      std::fill_n(bit_table_,raw_table_size_,0x00);
+      bit_table_.resize(table_size_ / bits_per_char, static_cast<unsigned char>(0x00));
    }
 
    bloom_filter(const bloom_filter& filter)
@@ -210,15 +204,15 @@ public:
       if (this != &f)
       {
          return
-            (salt_count_                         == f.salt_count_)                         &&
-            (table_size_                         == f.table_size_)                         &&
-            (raw_table_size_                     == f.raw_table_size_)                     &&
-            (projected_element_count_            == f.projected_element_count_)            &&
-            (inserted_element_count_             == f.inserted_element_count_)             &&
-            (random_seed_                        == f.random_seed_)                        &&
+            (salt_count_                         == f.salt_count_                        ) &&
+            (table_size_                         == f.table_size_                        ) &&
+            (bit_table_.size()                   == f.bit_table_.size()                  ) &&
+            (projected_element_count_            == f.projected_element_count_           ) &&
+            (inserted_element_count_             == f.inserted_element_count_            ) &&
+            (random_seed_                        == f.random_seed_                       ) &&
             (desired_false_positive_probability_ == f.desired_false_positive_probability_) &&
-            (salt_                               == f.salt_)                               &&
-            std::equal(f.bit_table_,f.bit_table_ + raw_table_size_,bit_table_);
+            (salt_                               == f.salt_                              ) &&
+            (bit_table_                          == f.bit_table_                         ) ;
       }
       else
          return true;
@@ -235,8 +229,8 @@ public:
       {
          salt_count_ = f.salt_count_;
          table_size_ = f.table_size_;
-
-         raw_table_size_ = f.raw_table_size_;
+         bit_table_  = f.bit_table_;
+         salt_       = f.salt_;
 
          projected_element_count_ = f.projected_element_count_;
          inserted_element_count_  = f.inserted_element_count_;
@@ -244,22 +238,13 @@ public:
          random_seed_ = f.random_seed_;
 
          desired_false_positive_probability_ = f.desired_false_positive_probability_;
-
-         delete[] bit_table_;
-
-         bit_table_ = new cell_type[static_cast<std::size_t>(raw_table_size_)];
-
-         std::copy(f.bit_table_,f.bit_table_ + raw_table_size_,bit_table_);
-
-         salt_ = f.salt_;
       }
+
       return *this;
    }
 
    virtual ~bloom_filter()
-   {
-      delete[] bit_table_;
-   }
+   {}
 
    inline bool operator!() const
    {
@@ -268,7 +253,7 @@ public:
 
    inline void clear()
    {
-      std::fill_n(bit_table_,raw_table_size_,0x00);
+      std::fill(bit_table_.begin(), bit_table_.end(), static_cast<unsigned char>(0x00));
       inserted_element_count_ = 0;
    }
 
@@ -279,7 +264,7 @@ public:
 
       for (std::size_t i = 0; i < salt_.size(); ++i)
       {
-         compute_indices(hash_ap(key_begin,length,salt_[i]),bit_index,bit);
+         compute_indices(hash_ap(key_begin, length, salt_[i]), bit_index, bit);
 
          bit_table_[bit_index / bits_per_char] |= bit_mask[bit];
       }
@@ -287,7 +272,7 @@ public:
       ++inserted_element_count_;
    }
 
-   template<typename T>
+   template <typename T>
    inline void insert(const T& t)
    {
       // Note: T must be a C++ POD type.
@@ -296,7 +281,7 @@ public:
 
    inline void insert(const std::string& key)
    {
-      insert(reinterpret_cast<const unsigned char*>(key.c_str()),key.size());
+      insert(reinterpret_cast<const unsigned char*>(key.data()),key.size());
    }
 
    inline void insert(const char* data, const std::size_t& length)
@@ -304,7 +289,7 @@ public:
       insert(reinterpret_cast<const unsigned char*>(data),length);
    }
 
-   template<typename InputIterator>
+   template <typename InputIterator>
    inline void insert(const InputIterator begin, const InputIterator end)
    {
       InputIterator itr = begin;
@@ -322,7 +307,7 @@ public:
 
       for (std::size_t i = 0; i < salt_.size(); ++i)
       {
-         compute_indices(hash_ap(key_begin,length,salt_[i]),bit_index,bit);
+         compute_indices(hash_ap(key_begin, length, salt_[i]), bit_index, bit);
 
          if ((bit_table_[bit_index / bits_per_char] & bit_mask[bit]) != bit_mask[bit])
          {
@@ -333,7 +318,7 @@ public:
       return true;
    }
 
-   template<typename T>
+   template <typename T>
    inline bool contains(const T& t) const
    {
       return contains(reinterpret_cast<const unsigned char*>(&t),static_cast<std::size_t>(sizeof(T)));
@@ -349,7 +334,7 @@ public:
       return contains(reinterpret_cast<const unsigned char*>(data),length);
    }
 
-   template<typename InputIterator>
+   template <typename InputIterator>
    inline InputIterator contains_all(const InputIterator begin, const InputIterator end) const
    {
       InputIterator itr = begin;
@@ -367,7 +352,7 @@ public:
       return end;
    }
 
-   template<typename InputIterator>
+   template <typename InputIterator>
    inline InputIterator contains_none(const InputIterator begin, const InputIterator end) const
    {
       InputIterator itr = begin;
@@ -390,7 +375,7 @@ public:
       return table_size_;
    }
 
-   inline std::size_t element_count() const
+   inline unsigned long long int element_count() const
    {
       return inserted_element_count_;
    }
@@ -416,7 +401,7 @@ public:
            (random_seed_ == f.random_seed_)
          )
       {
-         for (std::size_t i = 0; i < raw_table_size_; ++i)
+         for (std::size_t i = 0; i < bit_table_.size(); ++i)
          {
             bit_table_[i] &= f.bit_table_[i];
          }
@@ -434,7 +419,7 @@ public:
            (random_seed_ == f.random_seed_)
          )
       {
-         for (std::size_t i = 0; i < raw_table_size_; ++i)
+         for (std::size_t i = 0; i < bit_table_.size(); ++i)
          {
             bit_table_[i] |= f.bit_table_[i];
          }
@@ -452,7 +437,7 @@ public:
            (random_seed_ == f.random_seed_)
          )
       {
-         for (std::size_t i = 0; i < raw_table_size_; ++i)
+         for (std::size_t i = 0; i < bit_table_.size(); ++i)
          {
             bit_table_[i] ^= f.bit_table_[i];
          }
@@ -463,7 +448,7 @@ public:
 
    inline const cell_type* table() const
    {
-      return bit_table_;
+      return bit_table_.data();
    }
 
    inline std::size_t hash_count()
@@ -531,20 +516,20 @@ protected:
                    predef_salt + salt_count_,
                    std::back_inserter(salt_));
 
-          for (unsigned int i = 0; i < salt_.size(); ++i)
-          {
+         for (std::size_t i = 0; i < salt_.size(); ++i)
+         {
             /*
-              Note:
-              This is done to integrate the user defined random seed,
-              so as to allow for the generation of unique bloom filter
-              instances.
+               Note:
+               This is done to integrate the user defined random seed,
+               so as to allow for the generation of unique bloom filter
+               instances.
             */
             salt_[i] = salt_[i] * salt_[(i + 3) % salt_.size()] + static_cast<bloom_type>(random_seed_);
-          }
+         }
       }
       else
       {
-         std::copy(predef_salt,predef_salt + predef_salt_count,std::back_inserter(salt_));
+         std::copy(predef_salt, predef_salt + predef_salt_count, std::back_inserter(salt_));
 
          srand(static_cast<unsigned int>(random_seed_));
 
@@ -622,15 +607,14 @@ protected:
       return hash;
    }
 
-   std::vector<bloom_type> salt_;
-   unsigned char*          bit_table_;
-   unsigned int            salt_count_;
-   unsigned long long int  table_size_;
-   unsigned long long int  raw_table_size_;
-   unsigned long long int  projected_element_count_;
-   unsigned int            inserted_element_count_;
-   unsigned long long int  random_seed_;
-   double                  desired_false_positive_probability_;
+   std::vector<bloom_type>    salt_;
+   std::vector<unsigned char> bit_table_;
+   unsigned int               salt_count_;
+   unsigned long long int     table_size_;
+   unsigned long long int     projected_element_count_;
+   unsigned long long int     inserted_element_count_;
+   unsigned long long int     random_seed_;
+   double                     desired_false_positive_probability_;
 };
 
 inline bloom_filter operator & (const bloom_filter& a, const bloom_filter& b)
@@ -682,10 +666,10 @@ public:
       unsigned long long int original_table_size = size_list.back();
       unsigned long long int new_table_size = static_cast<unsigned long long int>((size_list.back() * (1.0 - (percentage / 100.0))));
 
-      new_table_size -= (((new_table_size % bits_per_char) != 0) ? (new_table_size % bits_per_char) : 0);
+      new_table_size -= new_table_size % bits_per_char;
 
       if (
-           (bits_per_char > new_table_size) ||
+           (bits_per_char  >       new_table_size) ||
            (new_table_size >= original_table_size)
          )
       {
@@ -694,22 +678,24 @@ public:
 
       desired_false_positive_probability_ = effective_fpp();
 
-      cell_type* tmp = new cell_type[static_cast<std::size_t>(new_table_size / bits_per_char)];
+      const unsigned long long int new_tbl_raw_size = new_table_size / bits_per_char;
 
-      std::copy(bit_table_, bit_table_ + (new_table_size / bits_per_char), tmp);
+      table_type tmp(new_tbl_raw_size);
 
-      cell_type* itr = bit_table_ + (new_table_size / bits_per_char);
-      cell_type* end = bit_table_ + (original_table_size / bits_per_char);
-      cell_type* itr_tmp = tmp;
+      std::copy(bit_table_.begin(), bit_table_.begin() + new_tbl_raw_size, tmp.begin());
+
+      typedef table_type::iterator itr_t;
+
+      itr_t itr     = bit_table_.begin() + (new_table_size      / bits_per_char);
+      itr_t end     = bit_table_.begin() + (original_table_size / bits_per_char);
+      itr_t itr_tmp = tmp.begin();
 
       while (end != itr)
       {
          *(itr_tmp++) |= (*itr++);
       }
 
-      delete[] bit_table_;
-
-      bit_table_ = tmp;
+      std::swap(bit_table_, tmp);
 
       size_list.push_back(new_table_size);
 
@@ -741,7 +727,7 @@ private:
   If it can be guaranteed that bits_per_char will be of the form 2^n then
   the following optimization can be used:
 
-  hash_table[bit_index >> n] |= bit_mask[bit_index & (bits_per_char - 1)];
+  bit_table_[bit_index >> n] |= bit_mask[bit_index & (bits_per_char - 1)];
 
   Note 2:
   For performance reasons where possible when allocating memory it should

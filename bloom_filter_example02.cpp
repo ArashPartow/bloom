@@ -1,22 +1,20 @@
 /*
- **************************************************************************
- *                                                                        *
- *                           Open Bloom Filter                            *
- *                                                                        *
- * Description: Demonstration of a Bloom Filter                           *
- * Author: Arash Partow - 2000                                            *
- * URL: http://www.partow.net                                             *
- * URL: http://www.partow.net/programming/hashfunctions/index.html        *
- *                                                                        *
- * Copyright notice:                                                      *
- * Free use of the Bloom Filter Library is permitted under the guidelines *
- * and in accordance with the most current version of the Common Public   *
- * License.                                                               *
- * http://www.opensource.org/licenses/cpl1.0.php                          *
- *                                                                        *
- **************************************************************************
+ *********************************************************************
+ *                                                                   *
+ *                           Open Bloom Filter                       *
+ *                                                                   *
+ * Description: Demonstration of a Bloom Filter                      *
+ * Author: Arash Partow - 2000                                       *
+ * URL: http://www.partow.net                                        *
+ * URL: http://www.partow.net/programming/hashfunctions/index.html   *
+ *                                                                   *
+ * Copyright notice:                                                 *
+ * Free use of the Open Bloom Filter Library is permitted under the  *
+ * guidelines and in accordance with the MIT License.                *
+ * http://www.opensource.org/licenses/MIT                            *
+ *                                                                   *
+ *********************************************************************
 */
-
 
 
 /*
@@ -80,7 +78,7 @@ int main(int argc, char* argv[])
       word_list_storage_size += word_list[i].size();
    }
 
-   unsigned int total_number_of_queries = 0;
+   std::size_t total_number_of_queries = 0;
 
    const double desired_probability_of_false_positive = 1.0 / word_list.size();
 
@@ -125,9 +123,9 @@ int main(int argc, char* argv[])
 
       unsigned int current_total_false_positive = 0;
 
-      for (std::deque<std::string>::iterator it = outliers.begin(); it != outliers.end(); ++it)
+      for (std::deque<std::string>::iterator itr = outliers.begin(); itr != outliers.end(); ++itr)
       {
-         if (filter.contains(*it))
+         if (filter.contains(*itr))
          {
             ++current_total_false_positive;
          }
@@ -139,13 +137,13 @@ int main(int argc, char* argv[])
       double pfp = current_total_false_positive / (1.0 * outliers.size());
 
       printf("%6llu\t%10llu\t%6d\t%8.7f\t%8.7f\t%9.3f%%\t%8.6f\n",
-              static_cast<unsigned long long>(random_seed),
-              static_cast<unsigned long long>(total_number_of_queries),
-              current_total_false_positive,
-              desired_probability_of_false_positive,
-              pfp,
-              (100.0 * pfp) / desired_probability_of_false_positive,
-              (100.0 * filter.size()) / (bits_per_char * word_list_storage_size));
+             static_cast<unsigned long long>(random_seed),
+             static_cast<unsigned long long>(total_number_of_queries),
+             current_total_false_positive,
+             desired_probability_of_false_positive,
+             pfp,
+             (100.0 * pfp) / desired_probability_of_false_positive,
+             (100.0 * filter.size()) / (bits_per_char * word_list_storage_size));
 
       if (current_total_false_positive < min_false_positive_count)
          min_false_positive_count = current_total_false_positive;
@@ -194,7 +192,7 @@ int main(int argc, char* argv[])
 bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
 {
    // Note: The word-lists can be obtained from:
-   // http://code.google.com/p/bloom/source/browse/#svn/trunk
+   // https://github.com/ArashPartow/bloom
    static const std::string wl_list[] =
                      { "word-list.txt",
                        "word-list-large.txt",

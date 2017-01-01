@@ -15,7 +15,7 @@
 + PGI C++ (10.x+)
 + Microsoft Visual Studio C++ Compiler (8.1+)
 
-For more information please visit: http://www.partow.net/programming/hashfunctions/index.html
+For more information please visit: http://www.partow.net/programming/bloomfilter/index.html
 
 ---
 
