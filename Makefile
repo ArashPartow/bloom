@@ -1,5 +1,5 @@
 #
-# Open Bloom Filter Master MakeFile
+# Open Bloom Filter MakeFile
 # By Arash Partow - 2000
 #
 # URL: http://www.partow.net/programming/hashfunctions/index.html
@@ -12,24 +12,30 @@
 #
 
 COMPILER         = -c++
+#COMPILER        = -clang
 OPTIMIZATION_OPT = -O3
-OPTIONS          = -pedantic-errors -ansi -Wall -Wextra -Werror -Wno-long-long $(OPTIMIZATION_OPT) -o
-LINKER_OPT       = -L/usr/lib -lstdc++
+OPTIONS          = -pedantic-errors -ansi -Wall -Wextra -Werror -Wno-long-long $(OPTIMIZATION_OPT)
+LINKER_OPT       = -L/usr/lib -lstdc++ -lm
 
-BUILD+=bloom_filter_example01
-BUILD+=bloom_filter_example02
-BUILD+=bloom_filter_example03
+BUILD_LIST+=bloom_filter_example01
+BUILD_LIST+=bloom_filter_example02
+BUILD_LIST+=bloom_filter_example03
 
-all: $(BUILD)
+all: $(BUILD_LIST)
 
-bloom_filter_example01: bloom_filter.hpp bloom_filter_example01.cpp
-	$(COMPILER) $(OPTIONS) bloom_filter_example01 bloom_filter_example01.cpp $(LINKER_OPT)
+$(BUILD_LIST) : %: %.cpp bloom_filter.hpp
+	$(COMPILER) $(OPTIONS) -o $@ $@.cpp $(LINKER_OPT)
 
-bloom_filter_example02: bloom_filter.hpp bloom_filter_example02.cpp
-	$(COMPILER) $(OPTIONS) bloom_filter_example02 bloom_filter_example02.cpp $(LINKER_OPT)
+strip_bin :
+	@for f in $(BUILD_LIST); do if [ -f $$f ]; then strip -s $$f; echo $$f; fi done; 
 
-bloom_filter_example03: bloom_filter.hpp bloom_filter_example03.cpp
-	$(COMPILER) $(OPTIONS) bloom_filter_example03 bloom_filter_example03.cpp $(LINKER_OPT)
+valgrind :
+	@for f in $(BUILD_LIST); do \
+		if [ -f $$f ]; then \
+			cmd="valgrind --leak-check=full --show-reachable=yes --track-origins=yes --log-file=$$f.log -v ./$$f"; \
+			echo $$cmd; \
+			$$cmd; \
+		fi done;
 
 clean:
 	rm -f core *.o *.bak *stackdump *#

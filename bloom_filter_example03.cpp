@@ -104,9 +104,9 @@ int main(int argc, char* argv[])
 
       std::size_t total_false_positive = 0;
 
-      for (std::deque<std::string>::iterator it = outliers.begin(); it != outliers.end(); ++it)
+      for (std::deque<std::string>::iterator itr = outliers.begin(); itr != outliers.end(); ++itr)
       {
-         if (filter.contains(*it)) ++total_false_positive;
+         if (filter.contains(*itr)) ++total_false_positive;
       }
 
       double pfp = total_false_positive / (1.0 * outliers.size());
@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
 bool load_word_list(int argc, char* argv[], std::vector<std::string>& word_list)
 {
    // Note: The word-lists can be obtained from:
-   // http://code.google.com/p/bloom/source/browse/#svn/trunk
+   // https://github.com/ArashPartow/bloom
    static const std::string wl_list[] =
                      { "word-list.txt",
                        "word-list-large.txt",
