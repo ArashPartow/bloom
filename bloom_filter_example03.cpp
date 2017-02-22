@@ -1,22 +1,20 @@
 /*
- **************************************************************************
- *                                                                        *
- *                           Open Bloom Filter                            *
- *                                                                        *
- * Description: Usage pattern of Compressible Bloom Filter                *
- * Author: Arash Partow - 2000                                            *
- * URL: http://www.partow.net                                             *
- * URL: http://www.partow.net/programming/hashfunctions/index.html        *
- *                                                                        *
- * Copyright notice:                                                      *
- * Free use of the Bloom Filter Library is permitted under the guidelines *
- * and in accordance with the most current version of the Common Public   *
- * License.                                                               *
- * http://www.opensource.org/licenses/cpl1.0.php                          *
- *                                                                        *
- **************************************************************************
+ *********************************************************************
+ *                                                                   *
+ *                           Open Bloom Filter                       *
+ *                                                                   *
+ * Description: Usage pattern of Compressible Bloom Filter           *
+ * Author: Arash Partow - 2000                                       *
+ * URL: http://www.partow.net                                        *
+ * URL: http://www.partow.net/programming/hashfunctions/index.html   *
+ *                                                                   *
+ * Copyright notice:                                                 *
+ * Free use of the Open Bloom Filter Library is permitted under the  *
+ * guidelines and in accordance with the MIT License.                *
+ * http://www.opensource.org/licenses/MIT                            *
+ *                                                                   *
+ *********************************************************************
 */
-
 
 
 /*
@@ -30,7 +28,6 @@
                 positive probability against the effective false positive
                 probability as the filter's size is gradually reduced.
 */
-
 
 
 #include <iostream>

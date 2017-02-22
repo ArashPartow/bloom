@@ -9,9 +9,8 @@
  *                                                                   *
  * Copyright notice:                                                 *
  * Free use of the Open Bloom Filter Library is permitted under the  *
- * guidelines and in accordance with the most current version of the *
- * Common Public License.                                            *
- * http://www.opensource.org/licenses/cpl1.0.php                     *
+ * guidelines and in accordance with the MIT License.                *
+ * http://www.opensource.org/licenses/MIT                            *
  *                                                                   *
  *********************************************************************
 */
@@ -72,22 +71,22 @@ public:
              (0xFFFFFFFFFFFFFFFFULL == random_seed);
    }
 
-   //Allowed min/max size of the bloom filter in bits
+   // Allowable min/max size of the bloom filter in bits
    unsigned long long int minimum_size;
    unsigned long long int maximum_size;
 
-   //Allowed min/max number of hash functions
+   // Allowable min/max number of hash functions
    unsigned int minimum_number_of_hashes;
    unsigned int maximum_number_of_hashes;
 
-   //The approximate number of elements to be inserted
-   //into the bloom filter, should be within one order
-   //of magnitude. The default is 10000.
+   // The approximate number of elements to be inserted
+   // into the bloom filter, should be within one order
+   // of magnitude. The default is 10000.
    unsigned long long int projected_element_count;
 
-   //The approximate false positive probability expected
-   //from the bloom filter. The default is the reciprocal
-   //of the projected_element_count.
+   // The approximate false positive probability expected
+   // from the bloom filter. The default is assumed to be
+   // the reciprocal of the projected_element_count.
    double false_positive_probability;
 
    unsigned long long int random_seed;
@@ -281,7 +280,7 @@ public:
 
    inline void insert(const std::string& key)
    {
-      insert(reinterpret_cast<const unsigned char*>(key.c_str()),key.size());
+      insert(reinterpret_cast<const unsigned char*>(key.data()),key.size());
    }
 
    inline void insert(const char* data, const std::size_t& length)
